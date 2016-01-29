@@ -1,0 +1,67 @@
+From 0ec8c5c828a219dcfa5bb999dc705e2d301030fa Mon Sep 17 00:00:00 2001
+From: "Richard.Wang" <wangleihd@gmail.com>
+Date: Fri, 4 Dec 2015 19:30:17 -0800
+Subject: [PATCH 07/12] Exmaple 7: Add read operation for /dev/hello
+
+$ sudo insmod hello.ko
+	$ dmesg
+	$ sudo lsmod
+	$ sudo mknod /dev/hello c 245 0
+	$ cat /dev/hello
+	$ dmesg
+	$ sudo rmmod hello
+	$ dmesg
+
+diff --git a/hello.c b/hello.c
+index 0425199..fd6cb43 100644
+--- a/hello.c
++++ b/hello.c
+@@ -3,23 +3,44 @@
+ #include <linux/moduleparam.h>
+ #include <linux/kernel.h>
+ #include <linux/init.h>
++#include <asm/uaccess.h>
+ 
+ #include <linux/fs.h>
+ 
++#define MAX 127
++
+ static int mymajor = 245;
+ static int myminor = 0;
+ static int number_of_devices = 1;
+ 
+ static struct cdev cdev;
+ 
+-static int hello_open(struct inode *inode, struct file *file){
++static char data[MAX - 1] = "The device name is hello.\n";
++
++static int hello_open(struct inode *inode, struct file *filp){
+ 	printk("Hello, the device opened\n");
+ 	return 0;
+ }
+ 
++static ssize_t hello_read(struct file *filp, char *buff, size_t count, loff_t *offp){
++	int ret;
++
++	if(count > MAX)
++		count = MAX;
++
++	if(copy_to_user(buff, data, sizeof(data))){
++		ret = -EFAULT;
++	}else{
++		ret = count;
++	}
++
++	return ret;
++}
++
+ static struct file_operations fops={
+ 	.owner = THIS_MODULE,
+ 	.open  = hello_open,
++	.read  = hello_read,
+ };
+ 
+ static void char_reg_cdev(void){
+-- 
+1.7.9.5
+

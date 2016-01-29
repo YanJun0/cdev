@@ -1,0 +1,184 @@
+From b5964b12ee89df33a39d3f3e3f3c1f7449846aaf Mon Sep 17 00:00:00 2001
+From: "Richard.Wang" <wangleihd@gmail.com>
+Date: Sat, 5 Dec 2015 06:30:05 -0800
+Subject: [PATCH 10/12] Exmaple 9: ioctl for hello
+
+User:
+	$ make
+	$ sudo insmod hello.ko
+	$ dmesg
+	$ sudo mknod /dev/hello c 245 0
+	$ sudo chmod 777 /dev/hello
+	$ gcc app.c
+	$ ./a.out
+	$ dmesg
+	$ sudo rmmod
+
+diff --git a/.gitignore b/.gitignore
+index 8e03959..97fc329 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,4 +1,7 @@
+ *.o
++*.out
++app
++hello
+ *~
+ core
+ .depend
+diff --git a/0001-Exmaple-8-Add-write-operation-for-dev-hello.patch b/0001-Exmaple-8-Add-write-operation-for-dev-hello.patch
+deleted file mode 100644
+index b00d24c..0000000
+--- a/0001-Exmaple-8-Add-write-operation-for-dev-hello.patch
++++ /dev/null
+@@ -1,48 +0,0 @@
+-From 0af04d28f91be7869657678501ac26d21b714868 Mon Sep 17 00:00:00 2001
+-From: "Richard.Wang" <wangleihd@gmail.com>
+-Date: Fri, 4 Dec 2015 21:14:01 -0800
+-Subject: [PATCH] Exmaple 8: Add write operation for /dev/hello
+-
+-User:
+-	$ sudo insmod hello.ko
+-	$ dmesg
+-	$ sudo lsmod
+-	$ sudo mknod /dev/hello c 245 0
+-	$ sudo chmod 777 /dev/hello
+-	$ echo "Welcome to kernel" > /dev/hello
+-	$ cat /dev/hello
+-	$ sudo rmmod hello
+-	$ dmesg
+-
+-diff --git a/hello.c b/hello.c
+-index 9d9b203..f47a126 100644
+---- a/hello.c
+-+++ b/hello.c
+-@@ -34,10 +34,24 @@ static ssize_t hello_read(struct file *filp, char __user *buff, size_t count, lo
+- 	return ret;
+- }
+- 
+-+static ssize_t hello_write(struct file *filp, const char __user * buff, size_t count, loff_t *offp){
+-+	ssize_t ret  = 0;
+-+	if(count > MAX){
+-+		ret = -EFAULT;
+-+	}else{
+-+		memset(data, 0, MAX);
+-+		copy_from_user(data, buff, count);
+-+		data[count] = '\0';
+-+		ret = count;
+-+	}
+-+	return count;
+-+}
+-+
+- static struct file_operations fops={
+- 	.owner = THIS_MODULE,
+- 	.open  = hello_open,
+- 	.read  = hello_read,
+-+	.write = hello_write,
+- };
+- 
+- static void char_reg_cdev(void){
+--- 
+-1.7.9.5
+-
+diff --git a/app.c b/app.c
+new file mode 100644
+index 0000000..4c062b6
+--- /dev/null
++++ b/app.c
+@@ -0,0 +1,39 @@
++#include <stdio.h>
++#include <string.h>
++#include <sys/stat.h>
++#include <sys/ioctl.h>
++#include <fcntl.h>
++#include "common.h"
++#define SIZE 127
++
++void myread(int fd){
++    char data[SIZE + 1];
++    read(fd, data, SIZE);
++    printf("read = %s\n", data);
++}
++
++void mywrite(int fd){
++    char data[SIZE + 1] = "abcdefg";
++    write(fd, data, strlen(data));
++}
++
++
++int main(int argv, char * argc[]){
++    int fd;
++    fd = open ("/dev/hello", O_RDWR);
++    if(fd < 0){
++        printf("Open /deve/hello error!\n");
++        return fd;
++    }
++    myread(fd);
++    mywrite(fd);
++    myread(fd);
++
++    ioctl(fd, ONE);
++    ioctl(fd, TWO);
++    ioctl(fd, TRE);
++
++    close(fd);
++
++    return 0;
++}
+diff --git a/common.h b/common.h
+new file mode 100644
+index 0000000..2a48c7f
+--- /dev/null
++++ b/common.h
+@@ -0,0 +1,4 @@
++#define MAGIC 'H'
++#define ONE _IO (MAGIC, 1)
++#define TWO _IO (MAGIC, 2)
++#define TRE _IO (MAGIC, 3)
+diff --git a/hello.c b/hello.c
+index 176884a..e624b53 100644
+--- a/hello.c
++++ b/hello.c
+@@ -4,7 +4,8 @@
+ #include <linux/kernel.h>
+ #include <linux/init.h>
+ #include <asm/uaccess.h>
+-
++#include <linux/ioctl.h>
++#include "common.h"
+ #include <linux/fs.h>
+ 
+ #define MAX 127
+@@ -47,11 +48,29 @@ static ssize_t hello_write(struct file *filp, const char __user * buff, size_t c
+ 	return count;
+ }
+ 
++long hello_ioctl(struct file *filp, unsigned int cmd, unsigned long arg){
++	long  ret = 0;
++	switch(cmd){
++		case ONE:
++			printk("The command is one\n");
++			break;
++		case TWO:
++			printk("The command is two\n");
++			break;
++
++		default:
++			ret = -EINVAL;
++	}
++
++	return ret;
++}
++
+ static struct file_operations fops={
+ 	.owner = THIS_MODULE,
+ 	.open  = hello_open,
+ 	.read  = hello_read,
+ 	.write = hello_write,
++	.unlocked_ioctl = hello_ioctl,
+ };
+ 
+ static void char_reg_cdev(void){
+-- 
+1.7.9.5
+

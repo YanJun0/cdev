@@ -1,0 +1,115 @@
+From a079114415e71da4e8d877734e91b21bea2261de Mon Sep 17 00:00:00 2001
+From: "Richard.Wang" <wangleihd@gmail.com>
+Date: Fri, 4 Dec 2015 19:38:53 -0800
+Subject: [PATCH 08/12] Exmaple 7-1 : Fixed read bug.
+
+User:
+	$ sudo insmod hello.ko
+	$ dmesg
+	$ sudo lsmod
+	$ sudo mknod /dev/hello c 245 0
+	$ cat /dev/hello
+	$ dmesg
+	$ sudo rmmod hello
+	$ dmesg
+
+diff --git a/0001-Exmaple-8-Add-write-operation-for-dev-hello.patch b/0001-Exmaple-8-Add-write-operation-for-dev-hello.patch
+new file mode 100644
+index 0000000..b00d24c
+--- /dev/null
++++ b/0001-Exmaple-8-Add-write-operation-for-dev-hello.patch
+@@ -0,0 +1,48 @@
++From 0af04d28f91be7869657678501ac26d21b714868 Mon Sep 17 00:00:00 2001
++From: "Richard.Wang" <wangleihd@gmail.com>
++Date: Fri, 4 Dec 2015 21:14:01 -0800
++Subject: [PATCH] Exmaple 8: Add write operation for /dev/hello
++
++User:
++	$ sudo insmod hello.ko
++	$ dmesg
++	$ sudo lsmod
++	$ sudo mknod /dev/hello c 245 0
++	$ sudo chmod 777 /dev/hello
++	$ echo "Welcome to kernel" > /dev/hello
++	$ cat /dev/hello
++	$ sudo rmmod hello
++	$ dmesg
++
++diff --git a/hello.c b/hello.c
++index 9d9b203..f47a126 100644
++--- a/hello.c
+++++ b/hello.c
++@@ -34,10 +34,24 @@ static ssize_t hello_read(struct file *filp, char __user *buff, size_t count, lo
++ 	return ret;
++ }
++ 
+++static ssize_t hello_write(struct file *filp, const char __user * buff, size_t count, loff_t *offp){
+++	ssize_t ret  = 0;
+++	if(count > MAX){
+++		ret = -EFAULT;
+++	}else{
+++		memset(data, 0, MAX);
+++		copy_from_user(data, buff, count);
+++		data[count] = '\0';
+++		ret = count;
+++	}
+++	return count;
+++}
+++
++ static struct file_operations fops={
++ 	.owner = THIS_MODULE,
++ 	.open  = hello_open,
++ 	.read  = hello_read,
+++	.write = hello_write,
++ };
++ 
++ static void char_reg_cdev(void){
++-- 
++1.7.9.5
++
+diff --git a/hello.c b/hello.c
+index fd6cb43..0c8217f 100644
+--- a/hello.c
++++ b/hello.c
+@@ -15,25 +15,22 @@ static int number_of_devices = 1;
+ 
+ static struct cdev cdev;
+ 
+-static char data[MAX - 1] = "The device name is hello.\n";
++static char data[MAX + 1] = "The device name is hello.\n";
+ 
+ static int hello_open(struct inode *inode, struct file *filp){
+ 	printk("Hello, the device opened\n");
+ 	return 0;
+ }
+ 
+-static ssize_t hello_read(struct file *filp, char *buff, size_t count, loff_t *offp){
+-	int ret;
+-
+-	if(count > MAX)
+-		count = MAX;
+-
+-	if(copy_to_user(buff, data, sizeof(data))){
+-		ret = -EFAULT;
+-	}else{
++static ssize_t hello_read(struct file *filp, char __user *buff, size_t count, loff_t *offp){
++	ssize_t ret = 0;
++	if(*offp == 0){
++		if(count > MAX)
++			count = MAX;
++		copy_to_user(buff, data, count);
+ 		ret = count;
+ 	}
+-
++	*offp = ret;
+ 	return ret;
+ }
+ 
+@@ -91,4 +88,3 @@ MODULE_LICENSE("GPL");
+ MODULE_DESCRIPTION("The hello example");
+ module_init(hello_init);
+ module_exit(hello_exit);
+-
+-- 
+1.7.9.5
+

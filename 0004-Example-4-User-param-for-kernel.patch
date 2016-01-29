@@ -1,0 +1,59 @@
+From b62260d0cbc8469393786d9de764593993ab62f9 Mon Sep 17 00:00:00 2001
+From: "Richard.Wang" <wangl@farsight.cn>
+Date: Tue, 17 Nov 2015 22:07:46 -0800
+Subject: [PATCH 04/12] Example 4: User param for kernel.
+
+User:
+	$ sudo insmod hello.ko myint=5555 myshort=666 \
+		   mylog=88888 mystring="hello"
+	$ dmesg
+	$ sudo lsmod
+	$ sudo rmmod hello
+	$ dmesg
+
+diff --git a/hello.c b/hello.c
+index 88f0ed8..3ff0478 100644
+--- a/hello.c
++++ b/hello.c
+@@ -1,12 +1,36 @@
+ #include <linux/cdev.h>
+ #include <linux/module.h>
++#include <linux/moduleparam.h>
++#include <linux/kernel.h>
+ 
++static int myint = 222;
++static short int myshort = 111;
++static long int mylog = 333;
++static char * mystring = "My string";
++
++module_param(myint, int, 0400);
++MODULE_PARM_DESC(myint, "An integer");
++
++module_param(myshort, short, 0400);
++MODULE_PARM_DESC(myshort, "A short integer");
++
++module_param(mylog, long, 0000);
++MODULE_PARM_DESC(mylog, "A long integer");
++
++module_param(mystring, charp, 0000);
++MODULE_PARM_DESC(mystring, "A character string");
++
++static int hello_init(void){
+ 
+-int hello_init(void){
+ 	printk("Hello Linux device!\n");
++	printk("### myint  = %d\n", myint);
++	printk("### myshort = %hd\n", myshort);
++	printk("### mylong = %ld\n", mylog);
++	printk("### mystring = %s\n", mystring);
+ 	return 0;
+ }
+-void hello_exit(void){
++
++static void hello_exit(void){
+ 	printk("Bye Linux device!\n");
+ 
+ }
+-- 
+1.7.9.5
+

@@ -1,0 +1,73 @@
+From 1132722be61e871aac781746c8f49851bcec5ce3 Mon Sep 17 00:00:00 2001
+From: "Richard.Wang" <wangl@farsight.cn>
+Date: Tue, 17 Nov 2015 22:47:04 -0800
+Subject: [PATCH 05/12] Example 5: Sample char dev register
+
+User:
+	$ sudo insmod hello.ko
+	$ dmesg
+	$ sudo lsmod
+	$ sudo rmmod hello
+	$ dmesg
+
+diff --git a/hello.c b/hello.c
+index 3ff0478..9197b01 100644
+--- a/hello.c
++++ b/hello.c
+@@ -3,35 +3,32 @@
+ #include <linux/moduleparam.h>
+ #include <linux/kernel.h>
+ 
+-static int myint = 222;
+-static short int myshort = 111;
+-static long int mylog = 333;
+-static char * mystring = "My string";
++#include <linux/fs.h>
+ 
+-module_param(myint, int, 0400);
+-MODULE_PARM_DESC(myint, "An integer");
+-
+-module_param(myshort, short, 0400);
+-MODULE_PARM_DESC(myshort, "A short integer");
+-
+-module_param(mylog, long, 0000);
+-MODULE_PARM_DESC(mylog, "A long integer");
+-
+-module_param(mystring, charp, 0000);
+-MODULE_PARM_DESC(mystring, "A character string");
++static int mymajor = 245;
++static int myminor = 0;
++static int number_of_devices = 1;
+ 
+ static int hello_init(void){
++	int ret;
++	dev_t  devnu = 0;
++
++	devnu = MKDEV(mymajor, myminor);
++	ret = register_chrdev_region(devnu, number_of_devices, "hello");
++	if(ret < 0){
++		printk("Hello: can't get major number %d\n", mymajor);
++		return ret;
++	}
+ 
+-	printk("Hello Linux device!\n");
+-	printk("### myint  = %d\n", myint);
+-	printk("### myshort = %hd\n", myshort);
+-	printk("### mylong = %ld\n", mylog);
+-	printk("### mystring = %s\n", mystring);
++	printk("Registered character driver \'hello\'!\n");
+ 	return 0;
+ }
+ 
+ static void hello_exit(void){
+-	printk("Bye Linux device!\n");
++	dev_t devnu = 0;
++	devnu = MKDEV(mymajor, myminor);
++	unregister_chrdev_region(devnu, number_of_devices);
++	printk("Bye driver \'hello\'!\n");
+ 
+ }
+ 
+-- 
+1.7.9.5
+

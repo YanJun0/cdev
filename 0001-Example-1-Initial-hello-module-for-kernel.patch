@@ -1,0 +1,78 @@
+From a28213e16a6aef6238d79517bcedf7d783d4773e Mon Sep 17 00:00:00 2001
+From: "Richard.Wang" <wangl@farsight.cn>
+Date: Tue, 17 Nov 2015 18:58:00 -0800
+Subject: [PATCH 01/12] Example 1: Initial hello module for kernel.
+
+User:
+	$ sudo insmod hello.ko
+	$ dmesg
+	$ sudo lsmod
+	$ sudo rmmod hello
+	$ dmesg
+
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..8e03959
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,10 @@
++*.o
++*~
++core
++.depend
++.*.cmd
++*.ko
++*.mod.c
++.tmp_versions
++Module*
++modules*
+diff --git a/Makefile b/Makefile
+new file mode 100644
+index 0000000..927bb5b
+--- /dev/null
++++ b/Makefile
+@@ -0,0 +1,23 @@
++$(warning KERNELRELEASE=$(KERNELRELEASE))
++ifeq ($(KERNELRELEASE),)
++
++#KERNELDIR ?= /home/linux/linux-3.14
++
++KERNELDIR ?= /lib/modules/$(shell uname -r)/build  
++PWD := $(shell pwd)
++
++modules:
++		$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
++
++modules_install:
++		$(MAKE) -C $(KERNELDIR) M=$(PWD) modules_install
++
++clean:
++		rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions Module* modules*
++
++.PHONY: modules modules_install clean
++
++else
++	    obj-m := hello.o
++endif
++
+diff --git a/hello.c b/hello.c
+new file mode 100644
+index 0000000..bab6131
+--- /dev/null
++++ b/hello.c
+@@ -0,0 +1,12 @@
++#include <linux/cdev.h>
++
++
++int __init hello_init(void){
++	printk("Hello Linux device!\n");
++	return 0;
++}
++void __exit hello_exit(void){
++	printk("Bye Linux device!\n");
++
++}
++
+-- 
+1.7.9.5
+

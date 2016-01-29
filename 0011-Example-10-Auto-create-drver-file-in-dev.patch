@@ -1,0 +1,92 @@
+From d605999f2a877f82dba47b077ace41ee0d88be4d Mon Sep 17 00:00:00 2001
+From: Richard Wang <wangleihd@gmail.com>
+Date: Sun, 6 Dec 2015 21:10:40 +0800
+Subject: [PATCH 11/12] Example 10: Auto create drver file in /dev/
+
+User:
+  $ sudo insmod hello.ko
+  $ ll /dev/cool
+  $ cat /sys/class/hello/cool/uevent
+  $ sudo chmod 777 /dev/cool
+  $ gcc app.c
+  $ ./a.out
+  $ sudo rmmod hello
+
+diff --git a/app.c b/app.c
+index 4c062b6..9af8613 100644
+--- a/app.c
++++ b/app.c
+@@ -20,7 +20,7 @@ void mywrite(int fd){
+ 
+ int main(int argv, char * argc[]){
+     int fd;
+-    fd = open ("/dev/hello", O_RDWR);
++    fd = open ("/dev/cool", O_RDWR);
+     if(fd < 0){
+         printf("Open /deve/hello error!\n");
+         return fd;
+diff --git a/hello.c b/hello.c
+index e624b53..16cfedc 100644
+--- a/hello.c
++++ b/hello.c
+@@ -7,6 +7,7 @@
+ #include <linux/ioctl.h>
+ #include "common.h"
+ #include <linux/fs.h>
++#include <linux/device.h>
+ 
+ #define MAX 127
+ 
+@@ -15,6 +16,8 @@ static int myminor = 0;
+ static int number_of_devices = 1;
+ 
+ static struct cdev cdev;
++static struct class * hello_class;
++static struct device * hello_device;
+ 
+ static char data[MAX + 1] = "The device name is hello.\n";
+ 
+@@ -63,6 +66,7 @@ long hello_ioctl(struct file *filp, unsigned int cmd, unsigned long arg){
+ 	}
+ 
+ 	return ret;
++
+ }
+ 
+ static struct file_operations fops={
+@@ -99,8 +103,23 @@ static int hello_init(void){
+ 
+ 	char_reg_cdev();
+ 
++	hello_class = class_create(THIS_MODULE, "hello");
++	if(IS_ERR(hello_class)){
++		printk("Err: failed in createing class!\n");
++		goto err2;
++	}
++	hello_device = device_create(hello_class, NULL, devnu, NULL, "cool");
++	if(IS_ERR(hello_device)){
++		printk("Err: failed in createing device!");
++		goto err3;
++	}
+ 	printk("Registered character driver \'hello\'!\n");
+ 	return 0;
++
++err3:
++	class_destroy(hello_class);
++err2:
++	cdev_del(&cdev);
+ err1:
+ 	unregister_chrdev_region(devnu, number_of_devices);
+ 	return ret;
+@@ -110,6 +129,8 @@ err1:
+ static void hello_exit(void){
+ 	dev_t devnu = 0;
+ 	devnu = MKDEV(mymajor, myminor);
++	device_destroy(hello_class, devnu);
++	class_destroy(hello_class);
+ 	cdev_del(&cdev);
+ 	unregister_chrdev_region(devnu, number_of_devices);
+ 	printk("Bye driver \'hello\'!\n");
+-- 
+1.7.9.5
+
